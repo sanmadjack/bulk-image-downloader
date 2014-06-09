@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using System.Net;
+using JuiceBoxGalleryDownloader.Downloaders;
 
 namespace JuiceBoxGalleryDownloader {
     public partial class Form1 : Form {
@@ -58,36 +59,25 @@ namespace JuiceBoxGalleryDownloader {
                 button2.Enabled = false;
                 urlsTxt.Enabled = false;
                 outputTxt.Text = "";
-                backgroundWorker1.RunWorkerAsync();
+                List<string> urls = new List<string>();
+                urls.AddRange(urlsTxt.Text.Split('\n'));
+
+                ADownloader downloader = null;
+
+                if (rdoShimmie.Checked) {
+                    downloader = new ShimmieDownloader(urls, dirTxt.Text);
+                } else if (rdoJuiceBox.Checked) {
+                    downloader = new JuiceBoxDownloader(urls, dirTxt.Text);
+                } else {
+                    throw new NotSupportedException("No supported gallery type selected.");
+                }
+
+                downloader.worker.ProgressChanged += backgroundWorker1_ProgressChanged;
+                downloader.worker.RunWorkerCompleted += backgroundWorker1_RunWorkerCompleted;
+
+                downloader.worker.RunWorkerAsync();
             } catch (Exception ex) {
                 MessageBox.Show(this, ex.Message, "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e) {
-            List<String> urls = new List<string>();
-            urls.AddRange(urlsTxt.Text.Split('\n'));
-
-            for(int i = 0; i < urls.Count; i++ ) {
-                string url = urls[i];
-                backgroundWorker1.ReportProgress((i/urls.Count)*100,"urls: Processing URL " + url);
-
-                using (WebClient wc = new WebClient()) {
-                    JuiceBoxConfigFile config_file;
-                    using (MemoryStream stream = new MemoryStream(wc.DownloadData(url))) {
-                        config_file = new JuiceBoxConfigFile(stream);
-                    }
-                    List<String> images = config_file.GetImageURLS();
-                    for(int j = 0; j < images.Count; j++) {
-                        string image = images[j];
-                        Uri uri = new Uri(image);
-                        //if (uri.IsFile) {
-                            string filename = System.IO.Path.GetFileName(uri.LocalPath);
-                            wc.DownloadFile(image, Path.Combine(dirTxt.Text, filename));
-                            backgroundWorker1.ReportProgress((j / images.Count) * 100, "images: Downloading Image" + image);
-                        //}
-                    }
-                }
             }
         }
 

@@ -34,5 +34,28 @@ namespace JuiceBoxGalleryDownloader.Properties {
                 this["DownloadFolder"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SOCKS_Proxy_Host {
+            get {
+                return ((string)(this["SOCKS_Proxy_Host"]));
+            }
+            set {
+                this["SOCKS_Proxy_Host"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public int SOCKS_Proxy_Port {
+            get {
+                return ((int)(this["SOCKS_Proxy_Port"]));
+            }
+            set {
+                this["SOCKS_Proxy_Port"] = value;
+            }
+        }
     }
 }

@@ -50,7 +50,10 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
-    <Compile Include="JuiceBoxConfigFile.cs" />
+    <Compile Include="Downloaders\ADownloader.cs" />
+    <Compile Include="Downloaders\JuiceBoxConfigFile.cs" />
+    <Compile Include="Downloaders\JuiceBoxDownloader.cs" />
+    <Compile Include="Downloaders\ShimmieDownloader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
