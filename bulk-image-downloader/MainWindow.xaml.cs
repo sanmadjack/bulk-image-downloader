@@ -61,11 +61,18 @@ namespace bulk_image_downloader {
         }
 
         private void btnRetryFailed_Click(object sender, RoutedEventArgs e) {
-
+            this.manager.RestartFailed();
         }
 
         private void btnClearCompleted_Click(object sender, RoutedEventArgs e) {
             manager.ClearCompleted();
+        }
+
+        private void btnPauseSelected_Click(object sender, RoutedEventArgs e) {
+            foreach (Downloadable down in this.lstDownloadables.SelectedItems) {
+                down.Pause();
+            }
+            DownloadManager.SaveAll();
         }
     }
 }

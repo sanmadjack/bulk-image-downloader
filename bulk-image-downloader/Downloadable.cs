@@ -42,6 +42,8 @@ namespace bulk_image_downloader {
                 _State = value;
                 NotifyPropertyChanged("State");
                 NotifyPropertyChanged("StateText");
+                NotifyPropertyChanged("Speed");
+                NotifyPropertyChanged("ProgressText");
             }
         }
         public string StateText {
@@ -82,11 +84,12 @@ namespace bulk_image_downloader {
                 _length = value;
                 NotifyPropertyChanged("Length");
                 NotifyPropertyChanged("Progress");
+                NotifyPropertyChanged("Speed");
+                NotifyPropertyChanged("ProgressText");
             }
         }
 
-
-        private long _downloaded_length = 0;
+        private long _downloaded_length = -1;
         public long DownloadedLength {
             get {
                 return _downloaded_length;
@@ -95,6 +98,32 @@ namespace bulk_image_downloader {
                 _downloaded_length = value;
                 NotifyPropertyChanged("DownloadedLength");
                 NotifyPropertyChanged("Progress");
+                NotifyPropertyChanged("Speed");
+                NotifyPropertyChanged("ProgressText");
+            }
+        }
+
+        public string ProgressText {
+            get {
+                StringBuilder output = new StringBuilder();
+                if (DownloadedLength < 0) {
+
+                } else {
+                    output.Append(FormatSize(DownloadedLength));
+                    if (Length > 0) {
+                        output.Append("/");
+                    }
+                }
+                if(Length > 0) {
+                    output.Append(FormatSize(Length));
+                }
+                
+                if (Attempts > 1) {
+                    output.Append(" (Attempt ");
+                    output.Append(Attempts);
+                    output.Append(")");
+                }
+                return output.ToString();
             }
         }
 
@@ -119,6 +148,24 @@ namespace bulk_image_downloader {
             protected set {
                 _attempts = value;
                 NotifyPropertyChanged("Attempts");
+                NotifyPropertyChanged("ProgressText");
+
+            }
+        }
+
+        public string Speed {
+            get {
+                if (download_start_time == null|| this.State != DownloadState.Downloading) {
+                    return "";
+                }
+                TimeSpan time_since_start = DateTime.Now - download_start_time;
+                if (time_since_start.Seconds == 0) {
+                    return "";
+                } else {
+                    long per_sec = DownloadedLength / time_since_start.Seconds;
+                    return FormatSize(per_sec) + "/sec";
+                }
+                
             }
         }
 
@@ -133,6 +180,9 @@ namespace bulk_image_downloader {
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private DateTime download_start_time;
+
+
 
         public Downloadable(Uri url)
 {
@@ -145,9 +195,14 @@ namespace bulk_image_downloader {
         public Downloadable(String saved_downloadable)  {
             String[] values= saved_downloadable.Split(seperator);
             this.URL = new Uri(values[0]);
+            FileName = Path.GetFileName(URL.ToString());
 
             Enum.TryParse<DownloadState>(values[1], out this._State);
             Enum.TryParse<DownloadType>(values[2], out this.Type);
+            if (this.State == DownloadState.Downloading) {
+                this.State = DownloadState.Pending;
+            }
+
             download_thread = new Thread(DownloadThread);
             MaxAttempts = 5;
         }
@@ -250,7 +305,7 @@ namespace bulk_image_downloader {
         }
 
         void client_DownloadDataCompleted(object sender, DownloadDataCompletedEventArgs e) {
-            if (e.Error != null) {
+            if (e.Error != null && !e.Cancelled) {
                 if (Attempts < MaxAttempts) {
                     Thread.Sleep(5000);
                     client.DownloadDataAsync(this.URL);
@@ -304,12 +359,20 @@ namespace bulk_image_downloader {
 
         private string GetDownloadPath() {
             string filename = this.FileName;
+            string ext = Path.GetExtension(filename);
             if (filename.Length > 248) {
-                string ext = Path.GetExtension(filename);
-                filename = filename.Substring(0, 248 - ext.Length - 1) + "." + ext;
+                filename = filename.Substring(0, 248 - ext.Length) + ext;
             }
 
-            return Path.Combine(DownloadManager.DownloadDir, filename);
+            if (filename.Length + DownloadManager.DownloadDir.Length + 1 > 260) {
+                if (260 - DownloadManager.DownloadDir.Length - ext.Length - 2 <= 0) {
+                    throw new Exception("The destination folder's name is too long!");
+                }
+                filename = filename.Substring(0, 260 - DownloadManager.DownloadDir.Length - ext.Length - 2) + ext;
+            }
+
+            string output = Path.Combine(DownloadManager.DownloadDir, filename);
+            return output;
         }
 
         private void FetchHeaderInfo() {
@@ -349,5 +412,26 @@ namespace bulk_image_downloader {
             this.State = DownloadState.Pending;
         }
 
+        public void Pause() {
+            this.State = DownloadState.Paused;
+            if (this.client!=null && this.client.IsBusy) {
+                this.client.CancelAsync();
+            }
+        }
+
+
+        private string FormatSize(long len) {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            int order = 0;
+            while (len >= 1024 && order + 1 < sizes.Length) {
+                order++;
+                len = len / 1024;
+            }
+
+            // Adjust the format string to your preferences. For example "{0:0.#}{1}" would
+            // show a single decimal place, and no space.
+            string result = String.Format("{0:0.##} {1}", len, sizes[order]);
+            return result;
+        }
     }
 }
