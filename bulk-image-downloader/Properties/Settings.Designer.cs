@@ -37,12 +37,49 @@ namespace bulk_image_downloader.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        public global::System.Collections.Specialized.StringCollection Downloadables {
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Downloadables {
             get {
-                return ((global::System.Collections.Specialized.StringCollection)(this["Downloadables"]));
+                return ((string)(this["Downloadables"]));
             }
             set {
                 this["Downloadables"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("3")]
+        public int MaxConcurrentDownloads {
+            get {
+                return ((int)(this["MaxConcurrentDownloads"]));
+            }
+            set {
+                this["MaxConcurrentDownloads"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool DetectAdditionalPages {
+            get {
+                return ((bool)(this["DetectAdditionalPages"]));
+            }
+            set {
+                this["DetectAdditionalPages"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("C:\\Users\\sanmadjack.FORTAWESOME\\Desktop\\TEST")]
+        public string LastDownloadDir {
+            get {
+                return ((string)(this["LastDownloadDir"]));
+            }
+            set {
+                this["LastDownloadDir"] = value;
             }
         }
     }

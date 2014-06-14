@@ -6,7 +6,7 @@ using System.Threading;
 using System.ComponentModel;
 using System.IO;
 using System.Net;
-
+using System.Xml;
 namespace bulk_image_downloader {
     enum DownloadState {
         Pending,
@@ -20,18 +20,31 @@ namespace bulk_image_downloader {
         Binary,
         Text
     }
-    enum DownloadAction {
-        SaveToFile,
-        SaveToMemory
-    }
 
     class Downloadable : INotifyPropertyChanged {
         private Thread download_thread;
+        private WebClient client;
 
-        private const char seperator = '«';
+        public int MaxAttempts { get; set; }
 
-        public DownloadAction Action { get; set; }
+        public DownloadType Type = DownloadType.Binary;
 
+        public string FileName {
+            get {
+                return Path.GetFileName(this.URL.ToString());
+            }
+        }
+        public Uri URL { get; protected set; }
+
+        public Object Data { get; protected set; }
+
+
+        private DateTime download_start_time;
+
+        public String DownloadDir { get; protected set; }
+        public String Source { get; set; }
+
+        #region Properties
         private DownloadState _State = DownloadState.Pending;
         public DownloadState State {
             get {
@@ -103,29 +116,7 @@ namespace bulk_image_downloader {
             }
         }
 
-        public string ProgressText {
-            get {
-                StringBuilder output = new StringBuilder();
-                if (DownloadedLength < 0) {
 
-                } else {
-                    output.Append(FormatSize(DownloadedLength));
-                    if (Length > 0) {
-                        output.Append("/");
-                    }
-                }
-                if(Length > 0) {
-                    output.Append(FormatSize(Length));
-                }
-                
-                if (Attempts > 1) {
-                    output.Append(" (Attempt ");
-                    output.Append(Attempts);
-                    output.Append(")");
-                }
-                return output.ToString();
-            }
-        }
 
         public int Progress {
             get {
@@ -153,9 +144,14 @@ namespace bulk_image_downloader {
             }
         }
 
+        #endregion
+
+        #region "Download status"
+
+
         public string Speed {
             get {
-                if (download_start_time == null|| this.State != DownloadState.Downloading) {
+                if (download_start_time == null || this.State != DownloadState.Downloading) {
                     return "";
                 }
                 TimeSpan time_since_start = DateTime.Now - download_start_time;
@@ -165,61 +161,131 @@ namespace bulk_image_downloader {
                     long per_sec = DownloadedLength / time_since_start.Seconds;
                     return FormatSize(per_sec) + "/sec";
                 }
-                
+
             }
         }
 
-        public int MaxAttempts { get; set; }
+        public string ProgressText {
+            get {
+                StringBuilder output = new StringBuilder();
+                if (DownloadedLength < 0) {
 
-        public DownloadType Type = DownloadType.Binary;
+                } else {
+                    output.Append(FormatSize(DownloadedLength));
+                    if (Length > 0) {
+                        output.Append("/");
+                    }
+                }
+                if (Length > 0) {
+                    output.Append(FormatSize(Length));
+                }
 
-        public string FileName { get; protected set; }
-        public Uri URL { get; protected set; }
+                if (Attempts > 1) {
+                    output.Append(" (Attempt ");
+                    output.Append(Attempts);
+                    output.Append(")");
+                }
+                return output.ToString();
+            }
+        }
+        #endregion
 
-        public Object Data { get; protected set; }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private DateTime download_start_time;
-
-
-
-        public Downloadable(Uri url)
-{
+        #region Constructors
+        public Downloadable(Uri url, string download_dir) {
             this.URL = url;
-            FileName = Path.GetFileName(url.ToString());
+            this.DownloadDir = download_dir;
             download_thread = new Thread(DownloadThread);
             MaxAttempts = 5;
         }
 
-        public Downloadable(String saved_downloadable)  {
-            String[] values= saved_downloadable.Split(seperator);
-            this.URL = new Uri(values[0]);
-            FileName = Path.GetFileName(URL.ToString());
+        public Downloadable(XmlElement ele) {
+            try {
+                LoadFromXML(ele);
 
-            Enum.TryParse<DownloadState>(values[1], out this._State);
-            Enum.TryParse<DownloadType>(values[2], out this.Type);
-            if (this.State == DownloadState.Downloading) {
+                download_thread = new Thread(DownloadThread);
+                MaxAttempts = 5;
+            } catch {
+                this.State = DownloadState.Error;
+            }
+        }
+#endregion
+
+        #region XML Read/write
+        public XmlElement CreateElement(XmlDocument doc) {
+            XmlElement ele = doc.CreateElement("downloadable");
+
+            XmlElement field = doc.CreateElement("url");
+            field.InnerText = URL.ToString();
+            ele.AppendChild(field);
+
+            field = doc.CreateElement("download_dir");
+            field.InnerText = this.DownloadDir;
+            ele.AppendChild(field);
+
+            field = doc.CreateElement("state");
+            field.InnerText = this.State.ToString();
+            ele.AppendChild(field);
+
+            field = doc.CreateElement("type");
+            field.InnerText = this.Type.ToString();
+            ele.AppendChild(field);
+
+            return ele;
+        }
+
+        private void LoadFromXML(XmlElement ele) {
+            if(ele.GetElementsByTagName("url").Count>0) {
+                this.URL= new Uri(ele.GetElementsByTagName("url")[0].InnerText);
+            } else {
+                throw new Exception("No URL specified");
+            }
+
+            if (ele.GetElementsByTagName("download_dir").Count > 0) {
+                this.DownloadDir = ele.GetElementsByTagName("download_dir")[0].InnerText;
+            } else {
+                throw new Exception("No download dir specified");
+            }
+
+            if (ele.GetElementsByTagName("state").Count > 0) {
+                Enum.TryParse<DownloadState>(ele.GetElementsByTagName("state")[0].InnerText, out this._State);
+            } else {
                 this.State = DownloadState.Pending;
             }
 
-            download_thread = new Thread(DownloadThread);
-            MaxAttempts = 5;
-        }
+            if (ele.GetElementsByTagName("type").Count > 0) {
+                Enum.TryParse<DownloadType>(ele.GetElementsByTagName("type")[0].InnerText, out this.Type);
+            } else {
+                this.State = DownloadState.Pending;
+            }
 
-        private void NotifyPropertyChanged(String propertyName = "") {
-            if (PropertyChanged != null) {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            if (this.State == DownloadState.Downloading) {
+                this.State = DownloadState.Pending;
             }
         }
 
-        public void Download() {
+
+        #endregion
+
+        #region Download controls
+        public void Start() {
             this.State = DownloadState.Downloading;
             this.download_thread.Start();
         }
 
-        private WebClient client;
+        public void Reset() {
+            this.State = DownloadState.Pending;
+        }
 
+        public void Pause() {
+            this.State = DownloadState.Paused;
+            if (this.client != null && this.client.IsBusy) {
+                this.client.CancelAsync();
+            }
+        }
+
+        #endregion
+
+        #region Thread events
         private void DownloadThread() {
             try {
                 if (client != null) {
@@ -228,15 +294,15 @@ namespace bulk_image_downloader {
                     }
                 }
 
-                if(!DownloadManager.Overwrite&& File.Exists(this.GetDownloadPath())) {
+                if (!DownloadManager.Overwrite && File.Exists(this.GetDownloadPath())) {
                     this.State = DownloadState.Skipped;
                     return;
                 }
 
                 client = new WebClient();
                 client.DownloadProgressChanged += wc_DownloadProgressChanged;
-                client.DownloadDataCompleted += client_DownloadDataCompleted;
-                client.DownloadStringCompleted += client_DownloadStringCompleted;
+                client.DownloadDataCompleted +=  client_DownloadCompleted;
+                client.DownloadStringCompleted += client_DownloadCompleted;
 
                 switch (this.Type) {
                     case DownloadType.Binary:
@@ -256,59 +322,18 @@ namespace bulk_image_downloader {
             }
         }
 
-        void client_DownloadStringCompleted(object sender, DownloadStringCompletedEventArgs e) {
+        void client_DownloadCompleted(object sender, AsyncCompletedEventArgs e) {
             if (e.Error != null) {
                 if (Attempts < MaxAttempts) {
                     Thread.Sleep(5000);
-                    client.DownloadStringAsync(this.URL);
-                    Attempts = Attempts + 1;
-                } else {
-                    this.Exception = e.Error;
-                    this.State = DownloadState.Error;
-                    try {
-                        client.Dispose();
-                    } catch (Exception) { }
-                    client = null;
-                }
-                return;
-            } 
-            try {
-                if (e.Cancelled) {
-                    this.State = DownloadState.Paused;
-                    return;
-                }
-                try {
-                    this.Data = e.Result;
-
-                    if (this.Action == DownloadAction.SaveToFile) {
-                        if (!DownloadManager.Overwrite && File.Exists(this.GetDownloadPath())) {
-                            this.State = DownloadState.Skipped;
-                            return;
-                        } else {
-                            File.WriteAllText(this.GetDownloadPath(), e.Result);
-                        }
+                    switch (this.Type) {
+                        case DownloadType.Binary:
+                            client.DownloadDataAsync(this.URL);
+                            break;
+                        case DownloadType.Text:
+                            client.DownloadStringAsync(this.URL);
+                            break;
                     }
-
-
-                    this.State = DownloadState.Complete;
-                } catch (Exception ex) {
-                    this.Exception = ex;
-                    this.State = DownloadState.Error;
-                }
-            } finally {
-                try {
-                    client.Dispose();
-                } catch (Exception) { }
-                client = null;
-            }
-
-        }
-
-        void client_DownloadDataCompleted(object sender, DownloadDataCompletedEventArgs e) {
-            if (e.Error != null && !e.Cancelled) {
-                if (Attempts < MaxAttempts) {
-                    Thread.Sleep(5000);
-                    client.DownloadDataAsync(this.URL);
                     Attempts = Attempts + 1;
                 } else {
                     this.Exception = e.Error;
@@ -327,19 +352,32 @@ namespace bulk_image_downloader {
                     return;
                 }
                 try {
-                    this.Data = e.Result;
+                    switch (this.Type) {
+                        case DownloadType.Text:
+                            this.Data = ((DownloadStringCompletedEventArgs)e).Result;
+                            break;
+                        case DownloadType.Binary:
+                            this.Data = ((DownloadDataCompletedEventArgs)e).Result;
+                            break;
+                        default:
+                            throw new NotSupportedException();
+                    }
 
-                    if (this.Action == DownloadAction.SaveToFile) {
-                        if (!DownloadManager.Overwrite && File.Exists(this.GetDownloadPath())) {
-                            this.State = DownloadState.Skipped;
-                            return;
-                        } else {
-                            File.WriteAllBytes(this.GetDownloadPath(), e.Result);
+                    if (!DownloadManager.Overwrite && File.Exists(this.GetDownloadPath())) {
+                        this.State = DownloadState.Skipped;
+                        return;
+                    } else {
+                        switch (this.Type) {
+                            case DownloadType.Binary:
+                                File.WriteAllBytes(this.GetDownloadPath(), ((DownloadDataCompletedEventArgs)e).Result);
+                                break;
+                            case DownloadType.Text:
+                                File.WriteAllText(this.GetDownloadPath(), ((DownloadStringCompletedEventArgs)e).Result);
+                                break;
                         }
                     }
 
                     this.State = DownloadState.Complete;
-
                 } catch (Exception ex) {
                     this.Exception = ex;
                     this.State = DownloadState.Error;
@@ -357,6 +395,9 @@ namespace bulk_image_downloader {
             this.DownloadedLength = e.BytesReceived;
         }
 
+        #endregion
+
+        #region Helper functions
         private string GetDownloadPath() {
             string filename = this.FileName;
             string ext = Path.GetExtension(filename);
@@ -364,15 +405,29 @@ namespace bulk_image_downloader {
                 filename = filename.Substring(0, 248 - ext.Length) + ext;
             }
 
-            if (filename.Length + DownloadManager.DownloadDir.Length + 1 > 260) {
-                if (260 - DownloadManager.DownloadDir.Length - ext.Length - 2 <= 0) {
+            if (filename.Length + this.DownloadDir.Length + 1 > 260) {
+                if (260 - this.DownloadDir.Length - ext.Length - 2 <= 0) {
                     throw new Exception("The destination folder's name is too long!");
                 }
-                filename = filename.Substring(0, 260 - DownloadManager.DownloadDir.Length - ext.Length - 2) + ext;
+                filename = filename.Substring(0, 260 - this.DownloadDir.Length - ext.Length - 2) + ext;
             }
 
-            string output = Path.Combine(DownloadManager.DownloadDir, filename);
+            string output = Path.Combine(this.DownloadDir, filename);
             return output;
+        }
+
+        private string FormatSize(long len) {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            int order = 0;
+            while (len >= 1024 && order + 1 < sizes.Length) {
+                order++;
+                len = len / 1024;
+            }
+
+            // Adjust the format string to your preferences. For example "{0:0.#}{1}" would
+            // show a single decimal place, and no space.
+            string result = String.Format("{0:0.##} {1}", len, sizes[order]);
+            return result;
         }
 
         private void FetchHeaderInfo() {
@@ -397,41 +452,18 @@ namespace bulk_image_downloader {
             return wc;
 
         }
+        #endregion
 
-        public override string ToString() {
-            StringBuilder output = new StringBuilder();
-            output.Append(URL.ToString());
-            output.Append(seperator);
-            output.Append(this.StateText);
-            output.Append(seperator);
-            output.Append(this.Type.ToString());
-            return output.ToString();
-        }
+        #region INotify Implementation
 
-        public void Reset() {
-            this.State = DownloadState.Pending;
-        }
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        public void Pause() {
-            this.State = DownloadState.Paused;
-            if (this.client!=null && this.client.IsBusy) {
-                this.client.CancelAsync();
+        private void NotifyPropertyChanged(String propertyName = "") {
+            if (PropertyChanged != null) {
+                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
             }
         }
 
-
-        private string FormatSize(long len) {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            int order = 0;
-            while (len >= 1024 && order + 1 < sizes.Length) {
-                order++;
-                len = len / 1024;
-            }
-
-            // Adjust the format string to your preferences. For example "{0:0.#}{1}" would
-            // show a single decimal place, and no space.
-            string result = String.Format("{0:0.##} {1}", len, sizes[order]);
-            return result;
-        }
+        #endregion
     }
 }

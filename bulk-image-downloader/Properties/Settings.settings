@@ -5,8 +5,17 @@
     <Setting Name="DownloadDir" Type="System.String" Scope="User">
       <Value Profile="(Default)">C:\Users\sanmadjack.FORTAWESOME\Desktop\TEST</Value>
     </Setting>
-    <Setting Name="Downloadables" Type="System.Collections.Specialized.StringCollection" Scope="User">
+    <Setting Name="Downloadables" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="MaxConcurrentDownloads" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value>
+    </Setting>
+    <Setting Name="DetectAdditionalPages" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="LastDownloadDir" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Users\sanmadjack.FORTAWESOME\Desktop\TEST</Value>
     </Setting>
   </Settings>
 </SettingsFile>

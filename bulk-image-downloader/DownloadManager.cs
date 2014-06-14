@@ -5,21 +5,24 @@ using System.Text;
 using System.Threading;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Xml;
+using System.IO;
+
 namespace bulk_image_downloader {
 
     class DownloadManager : ObservableCollection<Downloadable> {
 
         private Thread supervisor_thread = new Thread(Supervise);
 
-        public static string DownloadDir {
-            get {
-                return Properties.Settings.Default.DownloadDir;
-            }
-            set {
-                Properties.Settings.Default.DownloadDir = value;
-                Properties.Settings.Default.Save();
-            }
-        }
+        //public static string DownloadDir {
+        //    get {
+        //        return Properties.Settings.Default.DownloadDir;
+        //    }
+        //    set {
+        //        Properties.Settings.Default.DownloadDir = value;
+        //        Properties.Settings.Default.Save();
+        //    }
+        //}
         public static bool Overwrite = false;
 
         private static bool StopTheMadness = false;
@@ -34,19 +37,35 @@ namespace bulk_image_downloader {
             }
         }
 
-        public static int MaxConcurrentDownloads = 3;
+        public static int MaxConcurrentDownloads {
+            get {
+                return Properties.Settings.Default.MaxConcurrentDownloads;
+            }
+            set {
+                Properties.Settings.Default.MaxConcurrentDownloads = value;
+                Properties.Settings.Default.Save();
+            }
+        }
 
         public DownloadManager() {
             manager = this;
-            if (Properties.Settings.Default.Downloadables == null) {
-                Properties.Settings.Default.Downloadables = new System.Collections.Specialized.StringCollection();
-            } else {
-                Downloadable down = null;
-                foreach (string line in Properties.Settings.Default.Downloadables) {
-                    down = new Downloadable(line);
-                    this.Add(down);
+            if (!String.IsNullOrWhiteSpace(Properties.Settings.Default.Downloadables)) {
+                XmlDocument doc = new XmlDocument();
+                doc.LoadXml(Properties.Settings.Default.Downloadables);
+
+                if (doc.GetElementsByTagName("downloadables").Count > 0) { 
+                XmlElement ele = (XmlElement)doc.GetElementsByTagName("downloadables")[0];
+                lock (manager) {
+                    Downloadable down = null;
+                    foreach (XmlElement dele in ele.GetElementsByTagName("downloadable")) {
+                        down = new Downloadable(dele);
+                        this.Add(down);
+                    }
+                }
                 }
             }
+            
+            SaveAll();
 
         }
 
@@ -70,7 +89,7 @@ namespace bulk_image_downloader {
                     }
                     for (int i = 0; i < manager.Count; i++) {
                         if ((downloading_count < MaxConcurrentDownloads || manager[i].Type == DownloadType.Text) && manager[i].State == DownloadState.Pending) {
-                            manager[i].Download();
+                            manager[i].Start();
                             downloading_count++;
                         }
 
@@ -80,55 +99,50 @@ namespace bulk_image_downloader {
             }
         }
 
-        public static void DownloadImage(Uri url) {
-            AddDownloadable(url, DownloadAction.SaveToFile, DownloadType.Binary);
+        public static void DownloadImage(Uri url, string download_dir, string source) {
+            AddDownloadable(url, download_dir, source, DownloadType.Binary);
         }
 
-        public static Downloadable AddDownloadable(Uri url, DownloadAction action, DownloadType type) {
-            Downloadable down = new Downloadable(url);
+        public static Downloadable AddDownloadable(Uri url, string download_dir, string source, DownloadType type) {
+            Downloadable down = new Downloadable(url, download_dir);
             down.Type = type;
-            down.Action = action;
+            down.Source = source;
             App.Current.Dispatcher.Invoke((Action)(() => {
                 lock (manager) {
                     manager.Add(down);
                 }
             }));
 
-            if (action == DownloadAction.SaveToFile) {
-                Properties.Settings.Default.Downloadables.Add(down.ToString());
-                Properties.Settings.Default.Save();
-            }
+            SaveAll();
 
             return down;
         }
 
-        public static String GetWebPageContents(Uri url) {
-            Downloadable down = AddDownloadable(url, DownloadAction.SaveToMemory, DownloadType.Text);
+        //public static String GetWebPageContents(Uri url) {
+        //    Downloadable down = AddDownloadable(url, "", DownloadType.Text);
 
-            while (down.State < DownloadState.Complete) {
-                Thread.Sleep(500);
-            }
+        //    while (down.State < DownloadState.Complete) {
+        //        Thread.Sleep(500);
+        //    }
 
-            App.Current.Dispatcher.Invoke((Action)(() => {
-                lock (manager) {
-                    manager.Remove(down);
-                }
-            }));
+        //    App.Current.Dispatcher.Invoke((Action)(() => {
+        //        lock (manager) {
+        //            manager.Remove(down);
+        //        }
+        //    }));
 
 
-            if (down.State == DownloadState.Complete) {
-                return down.Data.ToString();
-            } else {
-                return "";
-            }
+        //    if (down.State == DownloadState.Complete) {
+        //        return down.Data.ToString();
+        //    } else {
+        //        return "";
+        //    }
 
-        }
+        //}
 
         public void ClearAllDownloads() {
             this.Clear();
-            Properties.Settings.Default.Downloadables.Clear();
-            Properties.Settings.Default.Save();
-
+            SaveAll();
         }
 
         public void ClearCompleted() {
@@ -144,12 +158,25 @@ namespace bulk_image_downloader {
         }
 
         public static void SaveAll() {
-            lock(manager) {
-                Properties.Settings.Default.Downloadables.Clear();
+            lock (manager) {
+                XmlDocument doc = new XmlDocument();
+                XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
+                XmlElement root = doc.DocumentElement;
+                doc.InsertBefore(xmlDeclaration, root);
+
+                XmlElement downloadables = doc.CreateElement("downloadables");
+
                 for (int i = 0; i < manager.Count; i++) {
-                    Properties.Settings.Default.Downloadables.Add(manager[i].ToString());
+                    downloadables.AppendChild(manager[i].CreateElement(doc));
                 }
-                Properties.Settings.Default.Save();
+
+                using (var stringWriter = new StringWriter()) {
+                    using (var xmlTextWriter = XmlWriter.Create(stringWriter)) {
+                        doc.WriteTo(xmlTextWriter);
+                        xmlTextWriter.Flush();
+                        Properties.Settings.Default.Downloadables = stringWriter.GetStringBuilder().ToString();
+                    }
+                }
             }
         }
 
@@ -163,6 +190,8 @@ namespace bulk_image_downloader {
             }
             SaveAll();
         }
+
+
 
     }
 }

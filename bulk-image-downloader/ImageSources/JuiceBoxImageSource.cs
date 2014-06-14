@@ -7,12 +7,11 @@ using System.Net;
 using System.IO;
 
 namespace bulk_image_downloader.ImageSources {
-    public class JuiceImageSource {
-
-        //public JuiceImageSource(Uri url)
+    public class JuiceBoxImageSource  {
+        //public JuiceBoxImageSource(Uri url)
         //    : base(url) {
-        //}
 
+        //}
         #region IImageListSource Members
 
         //protected void DownloadImages(string url) {
