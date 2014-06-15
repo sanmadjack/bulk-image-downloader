@@ -112,7 +112,9 @@ namespace bulk_image_downloader {
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) {
-            manager.Stop();
+            if (manager != null) {
+                manager.Stop();
+            }
         }
 
         private void btnClearAll_Click(object sender, RoutedEventArgs e) {

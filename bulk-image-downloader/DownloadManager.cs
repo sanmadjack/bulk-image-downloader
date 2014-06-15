@@ -49,22 +49,23 @@ namespace bulk_image_downloader {
 
         public DownloadManager() {
             manager = this;
-            if (!String.IsNullOrWhiteSpace(Properties.Settings.Default.Downloadables)) {
-                XmlDocument doc = new XmlDocument();
-                doc.LoadXml(Properties.Settings.Default.Downloadables);
+                if (!String.IsNullOrWhiteSpace(Properties.Settings.Default.Downloadables)) {
+                    try {
+                        XmlDocument doc = new XmlDocument();
+                        doc.LoadXml(Properties.Settings.Default.Downloadables);
 
-                if (doc.GetElementsByTagName("downloadables").Count > 0) { 
-                XmlElement ele = (XmlElement)doc.GetElementsByTagName("downloadables")[0];
-                lock (manager) {
-                    Downloadable down = null;
-                    foreach (XmlElement dele in ele.GetElementsByTagName("downloadable")) {
-                        down = new Downloadable(dele);
-                        this.Add(down);
-                    }
+                        if (doc.GetElementsByTagName("downloadables").Count > 0) {
+                            XmlElement ele = (XmlElement)doc.GetElementsByTagName("downloadables")[0];
+                            lock (manager) {
+                                Downloadable down = null;
+                                foreach (XmlElement dele in ele.GetElementsByTagName("downloadable")) {
+                                    down = new Downloadable(dele);
+                                    this.Add(down);
+                                }
+                            }
+                        }
+                    } catch { }
                 }
-                }
-            }
-            
             SaveAll();
 
         }
@@ -166,6 +167,8 @@ namespace bulk_image_downloader {
 
                 XmlElement downloadables = doc.CreateElement("downloadables");
 
+                doc.AppendChild(downloadables);
+
                 for (int i = 0; i < manager.Count; i++) {
                     downloadables.AppendChild(manager[i].CreateElement(doc));
                 }
@@ -177,6 +180,7 @@ namespace bulk_image_downloader {
                         Properties.Settings.Default.Downloadables = stringWriter.GetStringBuilder().ToString();
                     }
                 }
+                Properties.Settings.Default.Save();
             }
         }
 
