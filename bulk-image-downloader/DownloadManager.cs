@@ -142,7 +142,14 @@ namespace bulk_image_downloader {
         //}
 
         public void ClearAllDownloads() {
-            this.Clear();
+            lock (manager) {
+                for (int i = 0; i < manager.Count; i++) {
+                    try {
+                        manager[i].Pause();
+                    } catch { }
+                }
+                this.Clear();
+            }
             SaveAll();
         }
 
