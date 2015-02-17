@@ -12,17 +12,14 @@ namespace bulk_image_downloader.ImageSources {
     public abstract class AImageSource: INotifyPropertyChanged {
         protected Uri url;
 
-        protected string download_dir;
-
         public BackgroundWorker worker;
 
         protected bool pause_work = false;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public AImageSource(Uri url, string download_dir) {
+        public AImageSource(Uri url) {
             this.url = url;
-            this.download_dir = download_dir;
             worker = new BackgroundWorker();
             worker.DoWork += worker_DoWork;
             worker.WorkerSupportsCancellation = true;
@@ -30,11 +27,30 @@ namespace bulk_image_downloader.ImageSources {
         }
 
         void worker_DoWork(object sender, DoWorkEventArgs e) {
-            ProcessImages();
+            List<Uri> pages = new List<Uri>();
+            Dictionary<Uri, List<Uri>> images = new Dictionary<Uri, List<Uri>>();
+            Uri starting_page = new Uri(this.url.ToString());
+
+            if (!Properties.Settings.Default.DetectAdditionalPages) {
+                pages.Add(starting_page);
+            } else {
+                pages = GetPages(GetPageContents(starting_page));
+            }
+
+
+            foreach (Uri page in pages) {
+                images.Add(page, new List<Uri>());
+                foreach (Uri image in GetImagesFromPage(GetPageContents(page))) {
+                    images[page].Add(image);
+                }
+            }
+
+            e.Result = images;
         }
 
 
-        abstract protected void ProcessImages();
+        abstract protected List<Uri> GetPages(String page_contents);
+        abstract protected List<Uri> GetImagesFromPage(String page_contents);
 
         public void Start() {
             if (worker.IsBusy) {

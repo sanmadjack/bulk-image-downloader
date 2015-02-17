@@ -10,9 +10,12 @@ namespace bulk_image_downloader.ImageSources {
         private static Regex PagesRegex = new Regex(@"href=""(/photos/[^/]+/page(\d+/))""");
         private static Regex ImageRegex = new Regex(@"""url"":""(https:\\/\\/[^\.]+.staticflickr.com\\/\d+\\/+\d+\\/((\d+)_[a-z0-9]+_([a-z]).([a-z]+)))""");
 
-        public FlickrImageSource(Uri url, string download_dir)
-            : base(url, download_dir) {
+        public FlickrImageSource(Uri url)
+            : base(url) {
         }
+
+        protected override List<Uri> GetImagesFromPage(String page_contents) { return null; }
+        protected override List<Uri> GetPages(String page_contents) { return null; }
 
         private int GetHighestPageNumber(string page_contents) {
             int highest_number = 0;
@@ -31,10 +34,10 @@ namespace bulk_image_downloader.ImageSources {
             return highest_number;
         }
 
-        protected override void ProcessImages() {
-//            if (!address_regex.IsMatch(url.ToString())) {
-  //              throw new Exception("Shimmie URL not understood");
-    //        }
+        protected void ProcessImages() {
+            //if (!address_regex.IsMatch(url.ToString())) {
+            //    throw new Exception("Shimmie URL not understood");
+            //}
 
 
 
@@ -47,7 +50,7 @@ namespace bulk_image_downloader.ImageSources {
 
             //while (new_max_found) {
             //    IfPausedWaitUntilUnPaused();
-            //    string primer_page = DownloadManager.GetWebPageContents(new Uri(test_url));
+            //    string primer_page = GetWebPageContents(new Uri(test_url));
             //    new_max_found = false;
 
             //    int test = GetHighestPageNumber(primer_page);

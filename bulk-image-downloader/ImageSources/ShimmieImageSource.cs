@@ -19,8 +19,8 @@ namespace bulk_image_downloader.ImageSources {
         private string address_root;
         private string query_root;
 
-        public ShimmieImageSource(Uri url, string download_dir)
-            : base(url, download_dir) {
+        public ShimmieImageSource(Uri url)
+            : base(url) {
 
             if (!address_regex.IsMatch(url.ToString())) {
                 throw new Exception("Shimmie URL not understood");
@@ -47,52 +47,43 @@ namespace bulk_image_downloader.ImageSources {
             return total_pages;
         }
 
-        
+        protected override List<Uri> GetPages(String page_contents) {
+            List<Uri> output = new List<Uri>();
+            bool new_max_found = true;
+            int total_pages = 0;
 
+            string test_url = url.ToString();
 
-        override protected void ProcessImages() {
+            while (new_max_found) {
+                IfPausedWaitUntilUnPaused();
+                new_max_found = false;
 
-
-            if (!Properties.Settings.Default.DetectAdditionalPages) {
-                DetectImages(new Uri(this.url.ToString()));
-            } else {
-
-
-                bool new_max_found = true;
-                int total_pages = 0;
-
-                string test_url = url.ToString();
-
-                while (new_max_found) {
-                    IfPausedWaitUntilUnPaused();
-                    string primer_page = GetPageContents(new Uri(test_url));
-                    new_max_found = false;
-
-                    int test = GetHighestPageNumber(primer_page);
-                    if (test > total_pages) {
-                        total_pages = test;
-                        new_max_found = true;
-                        test_url = query_root + total_pages;
-                    }
-                }
-
-
-                //(.+)/post/list/([^/]+/)?(\d+)
-                for (int i = 1; i <= total_pages; i++) {
-                    IfPausedWaitUntilUnPaused();
-
-                    test_url = query_root + i.ToString();
-
-                    DetectImages(new Uri(test_url));
+                int test = GetHighestPageNumber(page_contents);
+                if (test > total_pages) {
+                    total_pages = test;
+                    new_max_found = true;
+                    test_url = query_root + total_pages;
+                    page_contents = GetPageContents(new Uri(test_url));
                 }
             }
+
+
+            //(.+)/post/list/([^/]+/)?(\d+)
+            for (int i = 1; i <= total_pages; i++) {
+                IfPausedWaitUntilUnPaused();
+
+                test_url = query_root + i.ToString();
+
+                output.Add(new Uri(test_url));
+            }
+            return output;
+
         }
 
 
+        protected override List<Uri> GetImagesFromPage(String page_contents) {
+            List<Uri> output = new List<Uri>();
 
-
-        private void DetectImages(Uri page_url) {
-            string page_contents = GetPageContents(page_url);
             MatchCollection image_matches = images_regex.Matches(page_contents);
             foreach (Match image_match in image_matches) {
                 IfPausedWaitUntilUnPaused();
@@ -103,9 +94,10 @@ namespace bulk_image_downloader.ImageSources {
                 string page_content = GetPageContents(new Uri(address_root + image_match.Groups[1].Value));
 
                 if (image_regex.IsMatch(page_content)) {
-                    DownloadManager.DownloadImage(new Uri(image_regex.Match(page_content).Value),this.download_dir, page_url.ToString());
+                    output.Add(new Uri(image_regex.Match(page_content).Value));
                 }
             }
+            return output;
         }
 
 

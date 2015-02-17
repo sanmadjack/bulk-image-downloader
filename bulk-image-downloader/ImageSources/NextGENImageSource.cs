@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace bulk_image_downloader.ImageSources {
     public class NextGENImageSource: AImageSource {
-        public NextGENImageSource(Uri url, string download_dir)
-            : base(url, download_dir) {
+        public NextGENImageSource(Uri url)
+            : base(url) {
 
         }
 
@@ -16,7 +16,10 @@ namespace bulk_image_downloader.ImageSources {
 
         private static Regex images_regex = new Regex(@"['""](http.+?/wp-content/gallery/[^/]+/[^'""/]+)['""]");
 
-        override protected void ProcessImages() {
+        protected override List<Uri> GetImagesFromPage(String page_contents) { return null; }
+        protected override List<Uri> GetPages(String page_contents) { return null; }
+
+        protected void ProcessImages() {
             string page_contents = GetPageContents(url);
 
             if (!Properties.Settings.Default.DetectAdditionalPages || !page_nav_regex.IsMatch(page_contents)) {
@@ -71,7 +74,7 @@ namespace bulk_image_downloader.ImageSources {
 
                 if (!found_urls.Contains(image_match.Groups[1].Value)) {
                     found_urls.Add(image_match.Groups[1].Value);
-                    DownloadManager.DownloadImage(new Uri(image_match.Groups[1].Value), this.download_dir, page_url.ToString());
+                    //DownloadManager.DownloadImage(new Uri(image_match.Groups[1].Value), this.download_dir, page_url.ToString());
                 }
 
             }
