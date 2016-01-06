@@ -9,19 +9,17 @@ using System.IO;
 using System.Text.RegularExpressions;
 
 namespace bulk_image_downloader.ImageSources {
-    public class ShimmieImageSource : AImageSource {
+    public class GelbooruImageSource : AImageSource {
 
         private static Regex address_regex = new Regex(@"((.+)/post/list/[^/]+/?)(\d+)");
         private static Regex page_nav_regex = new Regex(@"/post/list/[^/]+/(\d+)");
         private static Regex images_regex = new Regex("class='[^'\"]+' href='(/post/view/[\\d]+)'");
         private static Regex image_regex = new Regex("http://.+/_images/[^'\"]+");
 
-        private static Regex image_only_regex = new Regex("<a href=['\"](.+_images.+)['\"]>Image Only");
-
         private string address_root;
         private string query_root;
 
-        public ShimmieImageSource(Uri url)
+        public GelbooruImageSource(Uri url)
             : base(url) {
 
             if (!address_regex.IsMatch(url.ToString())) {
@@ -65,7 +63,6 @@ namespace bulk_image_downloader.ImageSources {
                     total_pages = test;
                     new_max_found = true;
                     test_url = query_root + total_pages;
-                    System.Threading.Thread.Sleep(1000);
                     page_contents = GetPageContents(new Uri(test_url));
                 }
             }
@@ -87,40 +84,27 @@ namespace bulk_image_downloader.ImageSources {
         protected override List<Uri> GetImagesFromPage(String page_contents) {
             List<Uri> output = new List<Uri>();
 
-            MatchCollection image_matches = image_only_regex.Matches(page_contents);
-            foreach (Match image_match in image_matches)
-            {
+            MatchCollection image_matches = images_regex.Matches(page_contents);
+            foreach (Match image_match in image_matches) {
                 IfPausedWaitUntilUnPaused();
 
                 GroupCollection groups = image_match.Groups;
                 Group group = groups[0];
 
-                string image = image_match.Groups[1].Value;
+                string page_content = GetPageContents(new Uri(address_root + image_match.Groups[1].Value));
 
-                if (image_regex.IsMatch(image))
-                {
-                    output.Add(new Uri(image));
+                if (image_regex.IsMatch(page_content)) {
+                    String value = image_regex.Match(page_content).Value;
+                    if(value.ToLower().Contains("-002.paheal.net"))
+                    {
+                        value = value.Replace("-002.", "-003.");
+                    }
+                    
+                    //http://rule34-data-002.paheal.net/
+                    output.Add(new Uri(value));
                 }
             }
             return output;
-
-            //image_matches = images_regex.Matches(page_contents);
-            //foreach (Match image_match in image_matches) {
-            //    IfPausedWaitUntilUnPaused();
-
-            //    GroupCollection groups = image_match.Groups;
-            //    Group group = groups[0];
-
-            //    System.Threading.Thread.Sleep(1000);
-
-            //    string page_content = GetPageContents(new Uri(address_root + image_match.Groups[1].Value));
-
-            //    if (image_regex.IsMatch(page_content)) {
-            //        String value = image_regex.Match(page_content).Value;
-            //        output.Add(new Uri(value));
-            //    }
-            //}
-            //return output;
         }
 
 

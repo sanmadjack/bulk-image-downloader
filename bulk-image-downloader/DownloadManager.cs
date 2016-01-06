@@ -96,7 +96,7 @@ namespace bulk_image_downloader {
 
                     }
                 }
-                Thread.Sleep(500);
+                Thread.Sleep(50);
             }
         }
 
@@ -113,8 +113,6 @@ namespace bulk_image_downloader {
                     manager.Add(down);
                 }
             }));
-
-            SaveAll();
 
             return down;
         }

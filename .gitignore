@@ -1,2 +1,3 @@
 bulk-image-downloader/bin/
 bulk-image-downloader/obj/
+*.suo

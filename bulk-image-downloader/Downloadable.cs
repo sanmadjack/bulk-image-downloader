@@ -31,18 +31,32 @@ namespace bulk_image_downloader {
 
         public string FileName {
             get {
-                return Path.GetFileName(this.URL.ToString());
+                StringBuilder path =  new StringBuilder(Uri.UnescapeDataString(this.URL.ToString()));
+                foreach(char c in System.IO.Path.GetInvalidPathChars())
+                {
+                    path.Replace(c, '_');
+                }
+                path.Replace(':', '_');
+                string file = Path.GetFileName(path.ToString());
+                if(file.Length > 255)
+                {
+                    int length = 255 - Path.GetExtension(file).Length;
+                    file =  Path.GetFileNameWithoutExtension(file).Substring(0,length) + Path.GetExtension(file);
+                }
+                return file;
             }
         }
         public Uri URL { get; protected set; }
 
-        public Object Data { get; protected set; }
+        //public Object Data { get; protected set; }
 
 
         private DateTime download_start_time;
 
         public String DownloadDir { get; protected set; }
         public String Source { get; set; }
+
+        public int StartDelay = 1000;
 
         #region Properties
         private DownloadState _State = DownloadState.Pending;
@@ -299,6 +313,8 @@ namespace bulk_image_downloader {
                     return;
                 }
 
+                System.Threading.Thread.Sleep(this.StartDelay);
+
                 client = new WebClient();
                 client.DownloadProgressChanged += wc_DownloadProgressChanged;
                 client.DownloadDataCompleted +=  client_DownloadCompleted;
@@ -352,16 +368,16 @@ namespace bulk_image_downloader {
                     return;
                 }
                 try {
-                    switch (this.Type) {
-                        case DownloadType.Text:
-                            this.Data = ((DownloadStringCompletedEventArgs)e).Result;
-                            break;
-                        case DownloadType.Binary:
-                            this.Data = ((DownloadDataCompletedEventArgs)e).Result;
-                            break;
-                        default:
-                            throw new NotSupportedException();
-                    }
+                    //switch (this.Type) {
+                    //    case DownloadType.Text:
+                    //        this.Data = ((DownloadStringCompletedEventArgs)e).Result;
+                    //        break;
+                    //    case DownloadType.Binary:
+                    //        this.Data = ((DownloadDataCompletedEventArgs)e).Result;
+                    //        break;
+                    //    default:
+                    //        throw new NotSupportedException();
+                    //}
 
                     if (!DownloadManager.Overwrite && File.Exists(this.GetDownloadPath())) {
                         this.State = DownloadState.Skipped;

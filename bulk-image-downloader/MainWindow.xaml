@@ -26,6 +26,7 @@
                 <TextBox x:Name="txtURL" Grid.Column="0" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" />
                 <ComboBox x:Name="cboUrlType" SelectedIndex="0" HorizontalAlignment="Left" VerticalAlignment="Top" Width="Auto" Height="22" Grid.Column="1">
                     <ComboBoxItem Content="Shimmie" Tag="shimmie"  HorizontalAlignment="Left"/>
+                    <ComboBoxItem Content="DeviantArt" Tag="deviantart" HorizontalAlignment="Left"/>
                     <ComboBoxItem Content="Flickr"  Tag="flickr" HorizontalAlignment="Left"/>
                     <ComboBoxItem Content="NextGEN Gallery (Wordpress Plugin)" Tag="nextgen"  HorizontalAlignment="Left" />
                     <ComboBoxItem Content="JuiceBox" Tag="juicebox" HorizontalAlignment="Left"/>
@@ -49,9 +50,17 @@
         <ListView x:Name="lstDownloadables" Grid.Row="2" Grid.RowSpan="1" >
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Files" DisplayMemberBinding="{Binding Path=StateText}" Width="500"/>
+                    <GridViewColumn Header="Files" DisplayMemberBinding="{Binding Path=FileName}" Width="450"/>
+                    <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding Path=Speed}" Width="50"/>
+                    <GridViewColumn Header="Progress" DisplayMemberBinding="{Binding Path=ProgressText}" Width="100"/>
+                    <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Path=StateText}" Width="75"/>
                 </GridView>
             </ListView.View>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="{x:Type ListViewItem}">
+                    <Setter Property="ToolTip" Value="{Binding Path=URL}"/>
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <Grid>

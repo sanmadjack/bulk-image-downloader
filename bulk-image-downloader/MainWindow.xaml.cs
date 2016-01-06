@@ -22,6 +22,9 @@ namespace bulk_image_downloader {
     public partial class MainWindow : Window {
 
         DownloadManager manager;
+
+        private String download_dir;
+
         public MainWindow() {
             InitializeComponent();
         }
@@ -64,22 +67,25 @@ namespace bulk_image_downloader {
                     return;
                 }
 
-                string download = dlg.FileName;
-                Properties.Settings.Default.LastDownloadDir = download;
+                download_dir = dlg.FileName;
+                Properties.Settings.Default.LastDownloadDir = download_dir;
                 Properties.Settings.Default.Save();
 
                 switch (item.Tag.ToString()) {
                     case "shimmie":
-                        source = new ShimmieImageSource(url, download);
+                        source = new ShimmieImageSource(url);
                         break;
                     case "flickr":
-                        source = new FlickrImageSource(url, download);
+                        source = new FlickrImageSource(url);
                         break;
                     case "juicebox":
                         //source = new JuiceBoxImageSource(url);
                         break;
                     case "nextgen":
-                        source = new NextGENImageSource(url, download);
+                        source = new NextGENImageSource(url);
+                        break;
+                    case "deviantart":
+                        source = new DeviantArtImageSource(url);
                         break;
                     default:
                         throw new Exception("URL Type not supported");
@@ -108,6 +114,22 @@ namespace bulk_image_downloader {
         }
 
         void worker_RunWorkerCompleted(object sender, System.ComponentModel.RunWorkerCompletedEventArgs e) {
+            if(e.Error!= null)
+            {
+                MessageBox.Show(e.Error.Message);
+                EnableInterface();
+                return;
+            }
+
+            Dictionary<Uri, List<Uri>> images = (Dictionary<Uri, List<Uri>>)e.Result;
+            foreach (Uri page in images.Keys)
+            {
+                foreach (Uri image in images[page])
+                {
+                    DownloadManager.DownloadImage(image, download_dir, page.ToString());
+                }
+            }
+            DownloadManager.SaveAll();
             EnableInterface();
         }
 
